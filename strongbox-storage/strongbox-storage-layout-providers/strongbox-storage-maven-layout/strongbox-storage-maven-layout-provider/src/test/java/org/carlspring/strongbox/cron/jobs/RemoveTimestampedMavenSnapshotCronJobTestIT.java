@@ -1,7 +1,6 @@
 package org.carlspring.strongbox.cron.jobs;
 
-import org.carlspring.maven.commons.io.filters.JarFilenameFilter;
-import org.carlspring.maven.commons.util.ArtifactUtils;
+import org.carlspring.strongbox.artifact.MavenArtifactUtils;
 import org.carlspring.strongbox.config.Maven2LayoutProviderCronTasksTestConfig;
 import org.carlspring.strongbox.data.CacheManagerTestExecutionListener;
 import org.carlspring.strongbox.providers.layout.Maven2LayoutProvider;
@@ -38,7 +37,7 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 @SpringBootTest
 @ActiveProfiles(profiles = "test")
 @TestExecutionListeners(listeners = { CacheManagerTestExecutionListener.class },
-                        mergeMode = TestExecutionListeners.MergeMode.MERGE_WITH_DEFAULTS)
+        mergeMode = TestExecutionListeners.MergeMode.MERGE_WITH_DEFAULTS)
 @Execution(CONCURRENT)
 public class RemoveTimestampedMavenSnapshotCronJobTestIT
         extends BaseCronJobWithMavenIndexingTestCase
@@ -130,7 +129,7 @@ public class RemoveTimestampedMavenSnapshotCronJobTestIT
             {
                 if (jobName.equals(jobName1) && statusExecuted)
                 {
-                    assertEquals(1, file.listFiles(new JarFilenameFilter()).length,
+                    assertEquals(1, file.listFiles((dir, name) -> name.endsWith(".jar")).length,
                                  "Amount of timestamped snapshots doesn't equal 1.");
                     assertTrue(getSnapshotArtifactVersion(file).endsWith("-3"));
                 }
@@ -173,7 +172,7 @@ public class RemoveTimestampedMavenSnapshotCronJobTestIT
             {
                 if (jobName.equals(jobName1) && statusExecuted)
                 {
-                    assertEquals(1, file.listFiles(new JarFilenameFilter()).length,
+                    assertEquals(1, file.listFiles((dir, name) -> name.endsWith(".jar")).length,
                                  "Amount of timestamped snapshots doesn't equal 1.");
                     assertTrue(getSnapshotArtifactVersion(file).endsWith("-2"));
                 }
@@ -200,8 +199,8 @@ public class RemoveTimestampedMavenSnapshotCronJobTestIT
 
     private String getSnapshotArtifactVersion(File artifactFile)
     {
-        File[] files = artifactFile.listFiles(new JarFilenameFilter());
-        Artifact artifact = ArtifactUtils.convertPathToArtifact(files[0].getPath());
+        File[] files = artifactFile.listFiles((dir, name) -> name.endsWith(".jar"));
+        Artifact artifact = MavenArtifactUtils.convertPathToArtifact(files[0].getPath());
 
         return artifact.getVersion();
     }

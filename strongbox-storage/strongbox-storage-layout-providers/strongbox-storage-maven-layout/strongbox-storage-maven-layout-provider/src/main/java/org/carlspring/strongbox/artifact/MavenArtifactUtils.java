@@ -1,12 +1,14 @@
 package org.carlspring.strongbox.artifact;
 
-import org.carlspring.maven.commons.util.ArtifactUtils;
 import org.carlspring.strongbox.providers.io.RepositoryFiles;
 import org.carlspring.strongbox.providers.io.RepositoryPath;
 
 import java.io.IOException;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.maven.artifact.Artifact;
+import org.apache.maven.index.artifact.Gav;
+import org.apache.maven.index.artifact.M2GavCalculator;
 import org.javatuples.Pair;
 
 /**
@@ -15,62 +17,59 @@ import org.javatuples.Pair;
 public class MavenArtifactUtils
 {
 
+    private static final M2GavCalculator M2_GAV_CALCULATOR = new M2GavCalculator();
+
     public static String convertArtifactToPath(Artifact artifact)
     {
-        return ArtifactUtils.convertArtifactToPath(artifact);
+        final Gav gav = new Gav(artifact.getGroupId(),
+                                StringUtils.defaultString(artifact.getArtifactId()),
+                                StringUtils.defaultString(artifact.getVersion()),
+                                artifact.getClassifier(), artifact.getType(), null, null, null, false, null, false,
+                                null);
+        return M2_GAV_CALCULATOR.gavToPath(gav).substring(1);
     }
 
-    public static String getArtifactFileName(MavenArtifact artifact)
+    public static Pair<String, String> getDirectoryGA(RepositoryPath directoryPath)
+            throws IOException
     {
-        return ArtifactUtils.getArtifactFileName(artifact);
+        String path = RepositoryFiles.relativizePath(directoryPath);
+        if (path.endsWith("/"))
+        {
+            path = StringUtils.substringBeforeLast(path, "/");
+        }
+        return Pair.with(StringUtils.substringBeforeLast(path, "/").replaceAll("/", "."),
+                         StringUtils.substringAfterLast(path, "/"));
     }
 
-    public static Pair<String, String> getArtifactGroupId(RepositoryPath repositoryPath)
-        throws IOException
-    {
-        MavenArtifact tmpArtifact = MavenArtifactUtils.convertPathToArtifact(repositoryPath);
-
-        return Pair.with(tmpArtifact.getGroupId(), tmpArtifact.getArtifactId());
-    }
-    
-    public static MavenArtifact convertPathToArtifact(RepositoryPath repositoryPath) throws IOException
+    public static MavenArtifact convertPathToArtifact(RepositoryPath repositoryPath)
+            throws IOException
     {
         String path = RepositoryFiles.relativizePath(repositoryPath);
-        Artifact artifact = ArtifactUtils.convertPathToArtifact(path);
-        
-        return new MavenRepositoryArtifact(artifact, repositoryPath);
+        Gav gav = convertPathToGav(path);
+        return gav != null ? new MavenRepositoryArtifact(gav, repositoryPath) : null;
     }
 
-    public static String getSnapshotBaseVersion(String version)
+    public static Gav convertPathToGav(RepositoryPath repositoryPath)
+            throws IOException
     {
-        return getSnapshotBaseVersion(version, true);
+        String path = RepositoryFiles.relativizePath(repositoryPath);
+        return convertPathToGav(path);
     }
 
-    public static String getSnapshotBaseVersion(String version,
-                                                boolean appendSnapshotSuffix)
+    public static MavenArtifact convertPathToArtifact(String path)
     {
-        return ArtifactUtils.getSnapshotBaseVersion(version, appendSnapshotSuffix);
+        Gav gav = convertPathToGav(path);
+        return gav != null ? new MavenRepositoryArtifact(gav) : null;
     }
 
-    public static String getArtifactLevelMetadataPath(Artifact artifact)
+    public static Gav convertPathToGav(String path)
     {
-        return ArtifactUtils.getArtifactLevelMetadataPath(artifact);
+        return M2_GAV_CALCULATOR.pathToGav(path);
     }
 
-    public static MavenArtifact getPOMArtifact(MavenArtifact source)
+    public static String convertGavToPath(Gav gav)
     {
-        Artifact artifact = ArtifactUtils.getPOMArtifact(source);
-        return new MavenRepositoryArtifact(artifact, source.getPath());
-    }
-
-    public static boolean isSnapshot(String version)
-    {
-        return ArtifactUtils.isSnapshot(version);
-    }
-
-    public static String getVersionLevelMetadataPath(MavenArtifact artifact)
-    {
-        return ArtifactUtils.getVersionLevelMetadataPath(artifact);
+        return M2_GAV_CALCULATOR.gavToPath(gav);
     }
 
 }

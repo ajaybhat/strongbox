@@ -1,12 +1,8 @@
 package org.carlspring.strongbox.storage.metadata;
 
-import org.carlspring.maven.commons.util.ArtifactUtils;
 import org.carlspring.strongbox.artifact.MavenArtifactUtils;
-import org.carlspring.strongbox.providers.ProviderImplementationException;
 import org.carlspring.strongbox.providers.io.RepositoryFiles;
 import org.carlspring.strongbox.providers.io.RepositoryPath;
-import org.carlspring.strongbox.providers.layout.LayoutProvider;
-import org.carlspring.strongbox.providers.layout.LayoutProviderRegistry;
 import org.carlspring.strongbox.storage.repository.Repository;
 
 import javax.inject.Inject;
@@ -18,7 +14,9 @@ import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
+import java.util.regex.Matcher;
 
+import org.apache.maven.artifact.ArtifactUtils;
 import org.apache.maven.artifact.repository.metadata.Metadata;
 import org.apache.maven.artifact.repository.metadata.Versioning;
 import org.codehaus.plexus.util.xml.pull.XmlPullParserException;
@@ -26,7 +24,7 @@ import org.javatuples.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
-import static org.carlspring.strongbox.providers.layout.LayoutProviderRegistry.getLayoutProvider;
+import static org.apache.maven.artifact.Artifact.VERSION_FILE_PATTERN;
 
 /**
  * @author Kate Novik.
@@ -40,9 +38,6 @@ public class MavenSnapshotManager
     private static final Logger logger = LoggerFactory.getLogger(MavenSnapshotManager.class);
 
     @Inject
-    private LayoutProviderRegistry layoutProviderRegistry;
-
-    @Inject
     private MavenMetadataManager mavenMetadataManager;
 
     public MavenSnapshotManager()
@@ -54,11 +49,9 @@ public class MavenSnapshotManager
                                                    int numberToKeep,
                                                    int keepPeriod)
             throws IOException,
-                   ProviderImplementationException,
                    XmlPullParserException
     {
         Repository repository = basePath.getRepository();
-        LayoutProvider layoutProvider = getLayoutProvider(repository, layoutProviderRegistry);
         if (!RepositoryFiles.artifactExists(basePath))
         {
             logger.error("Removal of timestamped Maven snapshot artifact: " + basePath + ".");
@@ -70,7 +63,7 @@ public class MavenSnapshotManager
                      " in '" + repository.getStorage()
                                          .getId() + ":" + repository.getId() + "'.");
 
-        Pair<String, String> artifactGroup = MavenArtifactUtils.getArtifactGroupId(basePath);
+        Pair<String, String> artifactGroup = MavenArtifactUtils.getDirectoryGA(basePath);
         String artifactGroupId = artifactGroup.getValue0();
         String artifactId = artifactGroup.getValue1();
 
@@ -82,7 +75,7 @@ public class MavenSnapshotManager
         for (String version : versioning.getVersions())
         {
 
-            RepositoryPath versionDirectoryPath = basePath.resolve(ArtifactUtils.getSnapshotBaseVersion(version));
+            RepositoryPath versionDirectoryPath = basePath.resolve(ArtifactUtils.toSnapshotVersion(version));
             if (!removeTimestampedSnapshot(versionDirectoryPath, numberToKeep, keepPeriod))
             {
                 continue;
@@ -180,7 +173,7 @@ public class MavenSnapshotManager
          * map of the snapshots in metadata file
          * k - number of the build, v - version of the snapshot
          */
-        Map<Integer, String> snapshots = new HashMap<>();
+        Map<Integer, SnapshotVersion> snapshots = new HashMap<>();
 
         /**
          * map of snapshots for removing
@@ -196,19 +189,25 @@ public class MavenSnapshotManager
                              if ("jar".equals(e.getExtension()))
                              {
                                  String version = e.getVersion();
-                                 snapshots.put(Integer.parseInt(ArtifactUtils.getSnapshotBuildNumber(version)),
-                                               version);
+                                 Matcher matcher = VERSION_FILE_PATTERN.matcher(version);
+                                 if (matcher.matches())
+                                 {
+                                     final int buildNumber = Integer.parseInt(matcher.group(5));
+                                     final String timestamp = matcher.group(3);
+                                     final SnapshotVersion snapshotVersion = new SnapshotVersion(version, buildNumber, timestamp);
+                                     snapshots.put(snapshotVersion.buildNumber, snapshotVersion);
+                                 }
                              }
                          });
 
         if (numberToKeep != 0 && snapshots.size() > numberToKeep)
         {
             snapshots.forEach((k, v) ->
-                               {
-                                   if (mapToRemove.size() < snapshots.size() - numberToKeep)
-                                   {
-                                       mapToRemove.put(k, v);
-                                   }
+                              {
+                                  if (mapToRemove.size() < snapshots.size() - numberToKeep)
+                                  {
+                                      mapToRemove.put(k, v.version);
+                                  }
                                });
         }
         else if (numberToKeep == 0 && keepPeriod != 0)
@@ -217,9 +216,9 @@ public class MavenSnapshotManager
                                {
                                    try
                                    {
-                                       if (keepPeriod < getDifferenceDays(ArtifactUtils.getSnapshotTimestamp(v)))
+                                       if (keepPeriod < getDifferenceDays(v.timestamp))
                                        {
-                                           mapToRemove.put(k, v);
+                                           mapToRemove.put(k, v.version);
                                        }
                                    }
                                    catch (ParseException e)
@@ -252,6 +251,23 @@ public class MavenSnapshotManager
         long diff = d2.getTime() - d1.getTime();
 
         return (int) diff / (24 * 60 * 60 * 1000);
+    }
+
+    private static class SnapshotVersion
+    {
+
+        private final String version;
+        private final int buildNumber;
+        private final String timestamp;
+
+        private SnapshotVersion(String version,
+                                int buildNumber,
+                                String timestamp)
+        {
+            this.version = version;
+            this.buildNumber = buildNumber;
+            this.timestamp = timestamp;
+        }
     }
 
 }

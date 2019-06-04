@@ -11,9 +11,9 @@ import org.carlspring.strongbox.rest.common.RestAssuredBaseTest;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.InputStream;
+import java.util.Arrays;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import edu.emory.mathcs.backport.java.util.Arrays;
 import io.restassured.http.Headers;
 import io.restassured.module.mockmvc.response.MockMvcResponse;
 import org.apache.commons.io.IOUtils;
@@ -22,7 +22,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
-import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers;
 import static io.restassured.module.mockmvc.RestAssuredMockMvc.given;
 import static org.assertj.core.api.Assertions.assertThat;

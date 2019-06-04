@@ -1,17 +1,15 @@
 package org.carlspring.strongbox.artifact.coordinates;
 
-import java.util.Map;
-
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.XmlAttribute;
 import javax.xml.bind.annotation.XmlRootElement;
+import java.util.Map;
 
 import org.apache.maven.artifact.Artifact;
 import org.apache.maven.artifact.DefaultArtifact;
 import org.apache.maven.artifact.handler.DefaultArtifactHandler;
 import org.apache.maven.artifact.versioning.ComparableVersion;
-import org.carlspring.maven.commons.util.ArtifactUtils;
 
 /**
  * @author carlspring
@@ -49,45 +47,6 @@ public class MockedMavenArtifactCoordinates
         resetCoordinates(GROUPID, ARTIFACTID, VERSION, CLASSIFIER, EXTENSION);
     }
 
-    public MockedMavenArtifactCoordinates(String path)
-    {
-        this(ArtifactUtils.convertPathToArtifact(path));
-    }
-
-    public MockedMavenArtifactCoordinates(String... coordinateValues)
-    {
-        this();
-
-        int i = 0;
-        for (String coordinateValue : coordinateValues)
-        {
-            // Please, forgive the following construct...
-            // (In my defense, I felt equally stupid and bad for doing it this way):
-            switch (i)
-            {
-                case 0:
-                    setGroupId(coordinateValue);
-                    break;
-                case 1:
-                    setArtifactId(coordinateValue);
-                    break;
-                case 2:
-                    setVersion(coordinateValue);
-                    break;
-                case 3:
-                    setClassifier(coordinateValue);
-                    break;
-                case 4:
-                    setExtension(coordinateValue);
-                    break;
-                default:
-                    break;
-            }
-
-            i++;
-        }
-    }
-
     public MockedMavenArtifactCoordinates(Artifact artifact)
     {
         this();
@@ -116,7 +75,8 @@ public class MockedMavenArtifactCoordinates
     {
         try
         {
-            return ArtifactUtils.convertArtifactToPath(toArtifact());
+            // TODO
+            return null;//return ArtifactUtils.convertArtifactToPath(toArtifact());
         }
         catch (Exception e)
         {
