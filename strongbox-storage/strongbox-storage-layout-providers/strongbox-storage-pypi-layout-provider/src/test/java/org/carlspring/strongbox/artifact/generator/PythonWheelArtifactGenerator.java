@@ -3,16 +3,19 @@ package org.carlspring.strongbox.artifact.generator;
 import org.carlspring.strongbox.artifact.coordinates.PypiWheelArtifactCoordinates;
 
 import java.io.IOException;
+import java.net.URI;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Base64;
 
-
-import java.io.FileOutputStream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
 import com.google.common.hash.Hashing;
+import org.apache.commons.io.FilenameUtils;
 
-public class PythonWheelArtifactGenerator
+public class PythonWheelArtifactGenerator implements ArtifactGenerator
 {
 
     private static final String METADATA_CONTENT = "Metadata-Version: 2.1\n" +
@@ -30,24 +33,54 @@ public class PythonWheelArtifactGenerator
                                                    "\n" +
                                                    "Strongbox wheel package for test";
 
-    private String basedir;
-
-    public PythonWheelArtifactGenerator(String basedir)
+    private Path basedir;
+    
+    public PythonWheelArtifactGenerator(Path basedir)
     {
         this.basedir = basedir;
     }
 
-    public void generateWheelPackage(PypiWheelArtifactCoordinates coordinates)
+    public PythonWheelArtifactGenerator(String basedir)
+    {
+        this.basedir = Paths.get(basedir);
+    }
+
+    @Override
+    public Path generateArtifact(String id,
+                                 String version,
+                                 int size)
             throws IOException
     {
-        String packagePath = String.format("%s/%s-%s-py2-none-any.whl", basedir, coordinates.getId(),
-                                           coordinates.getVersion());
+        PypiWheelArtifactCoordinates coordinates = new PypiWheelArtifactCoordinates(id,
+                                                                                    version,
+                                                                                    null,
+                                                                                    "py3",
+                                                                                    "none",
+                                                                                    "any");
+        return generateArtifact(coordinates);
+    }
 
-        ZipOutputStream zos = new ZipOutputStream(new FileOutputStream(packagePath));
+    @Override
+    public Path generateArtifact(URI uri,
+                                 int size)
+            throws IOException
+    {
+        PypiWheelArtifactCoordinates coordinates = PypiWheelArtifactCoordinates.parse(FilenameUtils.getName(uri.toString()));
+        return generateArtifact(coordinates);
+    }
 
-        createPackageFiles(zos, coordinates.getId(), coordinates.getVersion());
+    public Path generateArtifact(PypiWheelArtifactCoordinates coordinates)
+            throws IOException
+    {
+        String packagePath = coordinates.toPath();
 
-        zos.close();
+        Path fullPath = basedir.resolve(packagePath);
+
+        try(ZipOutputStream zos = new ZipOutputStream(Files.newOutputStream(fullPath))) {
+            createPackageFiles(zos, coordinates.getId(), coordinates.getVersion());
+        }
+
+        return fullPath;
     }
 
     private void createPackageFiles(ZipOutputStream zos,
@@ -90,17 +123,24 @@ public class PythonWheelArtifactGenerator
         String recordPath = dirPath + "/" + "RECORD";
         String recordLineTmpl = "%s,sha256=%s,%s\n";
         StringBuilder recordContent = new StringBuilder()
-                                              .append(String.format(recordLineTmpl, binPath, calculateHash(binContent),
+                                              .append(String.format(recordLineTmpl,
+                                                                    binPath,
+                                                                    calculateHash(binContent),
                                                                     binContent.length))
-                                              .append(String.format(recordLineTmpl, licensePath,
+                                              .append(String.format(recordLineTmpl,
+                                                                    licensePath,
                                                                     calculateHash(licenseContent),
                                                                     licenseContent.length))
-                                              .append(String.format(recordLineTmpl, metadataPath,
+                                              .append(String.format(recordLineTmpl,
+                                                                    metadataPath,
                                                                     calculateHash(metadataContent),
                                                                     metadataContent.length))
-                                              .append(String.format(recordLineTmpl, wheelPath,
-                                                                    calculateHash(wheelContent), wheelContent.length))
-                                              .append(String.format(recordLineTmpl, topLevelPath,
+                                              .append(String.format(recordLineTmpl,
+                                                                    wheelPath,
+                                                                    calculateHash(wheelContent),
+                                                                    wheelContent.length))
+                                              .append(String.format(recordLineTmpl,
+                                                                    topLevelPath,
                                                                     calculateHash(topLevelContent),
                                                                     topLevelContent.length))
                                               .append(recordPath)
